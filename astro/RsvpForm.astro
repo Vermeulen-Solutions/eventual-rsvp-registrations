@@ -1,0 +1,657 @@
+---
+import { localeDirection, pluralWord, rsvpText } from "./rsvp-i18n";
+
+interface Props {
+  eventId: string;
+  occurrenceStart?: string;
+  apiEndpoint?: string;
+  /** Read-only route with the event's registration questions; defaults to `${apiEndpoint}/form`. */
+  formEndpoint?: string;
+  maxQuantity?: number;
+  title?: string;
+  allowWaitlist?: boolean;
+  /** Any BCP 47 tag; texts and emails use the closest shipped language (English otherwise). */
+  locale?: string;
+  /** Collection the event lives in, when Attendance reads several (default: the first configured). */
+  collection?: string;
+  /** Label for the person booking, when "Full name" is too vague (a parent, a teacher). */
+  nameLabel?: string;
+  /** Label for their email address. */
+  emailLabel?: string;
+  class?: string;
+}
+
+const {
+  eventId,
+  occurrenceStart = "",
+  apiEndpoint = "/_emdash/api/plugins/eventual-attendance/rsvp",
+  maxQuantity = 4,
+  title: titleProp,
+  allowWaitlist = true,
+  locale = "en",
+  collection = "",
+  nameLabel,
+  emailLabel,
+  class: className = "",
+} = Astro.props;
+
+const t = await rsvpText(locale);
+const title = titleProp ?? t.title;
+const formEndpoint = Astro.props.formEndpoint ?? `${apiEndpoint.replace(/\/+$/, "")}/form`;
+
+const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]/g, "") || "default"}`;
+---
+
+<div class={`eventual-rsvp-widget ${className}`} id={formId} lang={locale} dir={localeDirection(locale)} data-locale={locale} data-i18n={JSON.stringify(t.client)}>
+  <div class="eventual-rsvp-card">
+    <h3 class="eventual-rsvp-title">{title}</h3>
+
+    <form class="eventual-rsvp-form" method="POST" action={apiEndpoint} data-form-endpoint={formEndpoint} novalidate>
+      <input type="hidden" name="eventId" value={eventId} />
+      <input type="hidden" name="occurrenceStart" value={occurrenceStart} />
+      <input type="hidden" name="collection" value={collection} />
+      <input type="hidden" name="formTimestamp" class="eventual-form-timestamp" value="" />
+
+      <!-- Anti-abuse honeypot -->
+      <div style="display:none !important;" aria-hidden="true">
+        <label for={`${formId}-hp`}>{t.honeypot}</label>
+        <input type="text" id={`${formId}-hp`} name="honeypot" tabindex="-1" autocomplete="off" />
+      </div>
+
+      <div class="eventual-form-row">
+        <label for={`${formId}-name`} class="eventual-label">{nameLabel ?? t.name}</label>
+        <input
+          type="text"
+          id={`${formId}-name`}
+          name="displayName"
+          class="eventual-input"
+          placeholder={t.namePh}
+          required
+          maxlength="100"
+        />
+      </div>
+
+      <div class="eventual-form-row">
+        <label for={`${formId}-email`} class="eventual-label">{emailLabel ?? t.email}</label>
+        <input
+          type="email"
+          id={`${formId}-email`}
+          name="email"
+          class="eventual-input"
+          placeholder={t.emailPh}
+          required
+        />
+      </div>
+
+      {maxQuantity > 1 ? (
+        <div class="eventual-form-row">
+        <label for={`${formId}-qty`} class="eventual-label">{t.seats}</label>
+        <select id={`${formId}-qty`} name="quantity" class="eventual-select">
+          {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((qty) => (
+            <option value={qty}>{qty} {pluralWord(locale, qty, t.seat, t.seatsWord, t.seatsFew, t.seatsMany, t.seatsTwo)}</option>
+          ))}
+        </select>
+      </div>
+      ) : (
+        <input type="hidden" name="quantity" value="1" />
+      )}
+
+      <!-- Registration questions are loaded for this event and rendered here. -->
+      <div class="eventual-questions"></div>
+
+      <!-- Cloudflare Turnstile, shown only when the site turned it on in the Attendance settings. -->
+      <div class="eventual-turnstile" hidden></div>
+
+      <div class="eventual-form-actions">
+        <button type="submit" class="eventual-submit-btn">
+          <span class="btn-text">{t.submit}</span>
+          <span class="btn-spinner" aria-hidden="true" style="display:none;">⏳</span>
+        </button>
+      </div>
+
+      <div class="eventual-status-msg" aria-live="polite" style="display:none;"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Global on purpose: the script builds elements at runtime, which Astro's scoped styles
+     (data-astro-cid attributes) never reach. Every class carries a component prefix. -->
+<style is:global>
+  /* In the `eventual` cascade layer: unlayered site CSS overrides it, and sites that use layers
+     can place `eventual` below their own components layer. */
+  @layer eventual {
+  /* Defaults live on :root, not on the widget: a site sets --eventual-* on any wrapper and the
+     widget inherits it, whatever cascade layer the site's CSS is in. */
+  :root {
+    --eventual-primary: #0369a1;
+    --eventual-primary-hover: #075985;
+    --eventual-bg: #f8fafc;
+    --eventual-border: #e2e8f0;
+    --eventual-text: #0f172a;
+    --eventual-text-muted: #475569;
+    --eventual-success: #166534;
+    --eventual-success-bg: #dcfce7;
+    --eventual-warning: #92400e;
+    --eventual-warning-bg: #fef3c7;
+    --eventual-error: #991b1b;
+    --eventual-error-bg: #fee2e2;
+  }
+  .eventual-rsvp-widget {
+    font-family: inherit;
+    color: var(--eventual-text);
+    margin: 1.5rem 0;
+  }
+
+  .eventual-rsvp-widget [hidden] {
+    display: none;
+  }
+
+  .eventual-rsvp-card {
+    background: var(--eventual-bg);
+    border: 1px solid var(--eventual-border);
+    border-radius: var(--eventual-radius, 8px);
+    padding: 1.5rem;
+    max-width: var(--eventual-card-max-width, 440px);
+    box-sizing: border-box;
+  }
+
+  .eventual-rsvp-title {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .eventual-turnstile:not([hidden]) {
+    margin-block: 0.75rem;
+    min-height: 65px; /* Cloudflare's widget height: no jump when it appears */
+  }
+  .eventual-form-row {
+    margin-bottom: 1rem;
+  }
+
+  .eventual-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    color: var(--eventual-text);
+  }
+
+  .eventual-input,
+  .eventual-select {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--eventual-border);
+    border-radius: var(--eventual-control-radius, 6px);
+    font-size: 0.95rem;
+    color: var(--eventual-text, #0f172a);
+    background: var(--eventual-field-bg, #fff);
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+  }
+
+  .eventual-input::placeholder {
+    color: var(--eventual-text-muted, #64748b);
+  }
+
+  textarea.eventual-input {
+    display: block;
+  }
+
+  .eventual-input:focus,
+  .eventual-select:focus {
+    outline: 2px solid transparent;
+    border-color: var(--eventual-focus, var(--eventual-primary));
+    box-shadow: 0 0 0 3px var(--eventual-focus-ring, rgba(3, 105, 161, 0.2));
+  }
+
+  .eventual-submit-btn:focus-visible,
+  .eventual-checkbox-row input:focus-visible {
+    outline: 2px solid var(--eventual-focus, var(--eventual-primary));
+    outline-offset: 2px;
+  }
+
+  .eventual-submit-btn {
+    width: 100%;
+    background: var(--eventual-primary);
+    color: var(--eventual-on-primary, #fff);
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--eventual-button-radius, 6px);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .eventual-submit-btn:hover {
+    background: var(--eventual-primary-hover);
+  }
+
+  .eventual-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .eventual-checkbox-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .eventual-checkbox-row .eventual-label {
+    margin-bottom: 0;
+    cursor: pointer;
+  }
+
+  .eventual-checkbox-row input {
+    width: 1.1rem;
+    height: 1.1rem;
+    min-height: 0;
+    margin: 0;
+    flex: none;
+    accent-color: var(--eventual-primary);
+  }
+
+  .eventual-required {
+    color: var(--eventual-error);
+    margin-left: 0.15rem;
+  }
+
+  .eventual-input[aria-invalid="true"],
+  .eventual-select[aria-invalid="true"] {
+    border-color: var(--eventual-error);
+  }
+
+  .eventual-field-error {
+    color: var(--eventual-error);
+    font-size: 0.85rem;
+    margin: 0.3rem 0 0;
+  }
+
+  .eventual-status-msg {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--eventual-control-radius, 6px);
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .eventual-status-msg.success {
+    background: var(--eventual-success-bg);
+    color: var(--eventual-success);
+    border: 1px solid #bbf7d0;
+  }
+
+  .eventual-status-msg.waitlist {
+    background: var(--eventual-warning-bg);
+    color: var(--eventual-warning);
+    border: 1px solid #fde68a;
+  }
+
+  .eventual-status-msg.error {
+    background: var(--eventual-error-bg);
+    color: var(--eventual-error);
+    border: 1px solid #fecaca;
+  }
+
+  .eventual-manage-link {
+    margin: 0.6rem 0 0;
+    font-size: 0.9rem;
+  }
+
+  .eventual-manage-link a {
+    color: var(--eventual-primary);
+    font-weight: 600;
+  }
+
+  .eventual-manage-link a:hover {
+    color: var(--eventual-primary-hover);
+  }
+
+  .eventual-manage-link a:focus-visible {
+    outline: 2px solid var(--eventual-focus, var(--eventual-primary));
+    outline-offset: 2px;
+  }
+  }
+</style>
+
+<script>
+  // The EmDash host wraps plugin route results: { success: true, data } or { success: false, error: { code, message } }.
+  function unwrap(json: any): { ok: boolean; [key: string]: any } {
+    if (json && typeof json === 'object' && 'success' in json) {
+      if (json.success) return json.data ?? { ok: false };
+      return { ok: false, error: json.error?.code ?? 'REQUEST_FAILED' };
+    }
+    return json ?? { ok: false };
+  }
+
+  type Strings = {
+    submitting: string; submitRequest: string; choose: string; closed: string;
+    waitlistTitle: string; waitlistBody: string; waitlistBodyNoEmail: string;
+    pendingTitle: string; pendingBody: string; pendingBodyNoEmail: string;
+    successTitle: string; successBody: string; successBodyNoEmail: string; checkAnswers: string; maxQuantity: string; full: string;
+    generic: string; network: string; errors: Record<string, string>; fieldErrors: Record<string, string>;
+    challenge: string;
+  };
+
+  type TurnstileApi = {
+    render(el: HTMLElement, opts: Record<string, unknown>): string;
+    reset(id: string): void;
+  };
+  const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+  let turnstileLoading: Promise<TurnstileApi> | null = null;
+
+  /** Loads Cloudflare's script once per page, only when a form needs it. */
+  function loadTurnstile(): Promise<TurnstileApi> {
+    const w = window as unknown as { turnstile?: TurnstileApi };
+    if (w.turnstile) return Promise.resolve(w.turnstile);
+    turnstileLoading ??= new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = TURNSTILE_SCRIPT;
+      script.async = true;
+      script.onload = () => (w.turnstile ? resolve(w.turnstile) : reject(new Error('turnstile')));
+      script.onerror = () => { turnstileLoading = null; reject(new Error('turnstile')); };
+      document.head.append(script);
+    });
+    return turnstileLoading;
+  }
+
+  /** The widget's state for one form: the current token, and how to get a fresh one. */
+  type Challenge = { required: boolean; token: string; reset(): void };
+
+  /** One id per registration attempt: retries reuse it, so the server books only once. */
+  function newCommandId(): string {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  type Question = { id: string; label: string; type: string; required: boolean; options?: string[] };
+
+
+  /** Builds one question's input with DOM APIs only (labels are organiser text, never HTML). */
+  function renderQuestion(q: Question, prefix: string, T: Strings): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'eventual-form-row';
+    const inputId = `${prefix}-q-${q.id}`;
+    const errorId = `${inputId}-error`;
+
+    const label = document.createElement('label');
+    label.htmlFor = inputId;
+    label.className = 'eventual-label';
+    label.textContent = q.label;
+    if (q.required) {
+      const star = document.createElement('span');
+      star.className = 'eventual-required';
+      star.setAttribute('aria-hidden', 'true');
+      star.textContent = '*';
+      label.append(star);
+    }
+
+    let control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    if (q.type === 'textarea') {
+      control = document.createElement('textarea');
+      control.rows = 3;
+      control.maxLength = 2000;
+    } else if (q.type === 'select') {
+      control = document.createElement('select');
+      control.className = 'eventual-select';
+      const empty = new Option(T.choose, '');
+      control.append(empty, ...(q.options ?? []).map((o) => new Option(o, o)));
+    } else {
+      control = document.createElement('input');
+      const types: Record<string, string> = { email: 'email', phone: 'tel', number: 'number', date: 'date', checkbox: 'checkbox' };
+      control.type = types[q.type] ?? 'text';
+      if (control.type === 'text' || control.type === 'tel' || control.type === 'email') control.maxLength = 500;
+      if (q.type === 'phone') control.autocomplete = 'tel';
+    }
+    control.id = inputId;
+    control.dataset.questionId = q.id;
+    if (!(control instanceof HTMLSelectElement) && control.type !== 'checkbox') control.className = 'eventual-input';
+    if (q.required) {
+      control.required = true;
+      control.setAttribute('aria-required', 'true');
+    }
+    control.setAttribute('aria-describedby', errorId);
+
+    const error = document.createElement('p');
+    error.id = errorId;
+    error.className = 'eventual-field-error';
+    error.hidden = true;
+
+    if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+      const line = document.createElement('div');
+      line.className = 'eventual-checkbox-row';
+      line.append(control, label);
+      row.append(line, error);
+    } else {
+      row.append(label, control, error);
+    }
+    return row;
+  }
+
+  function collectAnswers(form: HTMLFormElement): Record<string, unknown> {
+    const answers: Record<string, unknown> = {};
+    form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-question-id]').forEach((el) => {
+      const id = el.dataset.questionId!;
+      answers[id] = el instanceof HTMLInputElement && el.type === 'checkbox' ? el.checked : el.value;
+    });
+    return answers;
+  }
+
+  function showFieldErrors(form: HTMLFormElement, fields: Record<string, string> | undefined, T: Strings): boolean {
+    let first: HTMLElement | null = null;
+    form.querySelectorAll<HTMLElement>('[data-question-id]').forEach((el) => {
+      const code = fields?.[el.dataset.questionId!];
+      const error = document.getElementById(el.getAttribute('aria-describedby') ?? '');
+      el.setAttribute('aria-invalid', code ? 'true' : 'false');
+      if (error) {
+        error.textContent = code ? T.fieldErrors[code] ?? T.fieldErrors.INVALID : '';
+        error.hidden = !code;
+      }
+      if (code && !first) first = el;
+    });
+    (first as HTMLElement | null)?.focus();
+    return first !== null;
+  }
+
+  async function loadFormDefinition(form: HTMLFormElement, prefix: string, T: Strings, onClosed: (msg: string) => void, challenge: Challenge, locale: string) {
+    const endpoint = form.dataset.formEndpoint;
+    const eventId = (form.querySelector<HTMLInputElement>('input[name="eventId"]')?.value) ?? '';
+    if (!endpoint || !eventId) return;
+    try {
+      const collection = form.querySelector<HTMLInputElement>('input[name="collection"]')?.value ?? '';
+      const occurrence = form.querySelector<HTMLInputElement>('input[name="occurrenceStart"]')?.value ?? '';
+      const res = await fetch(`${endpoint}?eventId=${encodeURIComponent(eventId)}${occurrence ? `&occurrence=${encodeURIComponent(occurrence)}` : ''}${collection ? `&collection=${encodeURIComponent(collection)}` : ''}`, { headers: { Accept: 'application/json' } });
+      const def = unwrap(await res.json().catch(() => null));
+      if (!def.ok) return; // the RSVP route still answers with a clear error on submit
+      if (!def.open) return onClosed(T.closed);
+      // Let the page show availability (for example "Complet" in a list of sessions).
+      form.dispatchEvent(new CustomEvent('eventual:availability', { bubbles: true, detail: { full: def.full === true, seatsLeft: def.seatsLeft ?? null, allowWaitlist: def.allowWaitlist === true } }));
+      if (def.full === true && def.allowWaitlist !== true) return onClosed(T.full);
+      if (def.requiresApproval === true) {
+        const label = form.querySelector<HTMLElement>('.eventual-submit-btn .btn-text');
+        if (label) label.textContent = T.submitRequest;
+      }
+      const qty = form.querySelector<HTMLSelectElement>('select[name="quantity"]');
+      const max = Number(def.maxPerRegistration);
+      if (qty && Number.isInteger(max) && max >= 1) {
+        Array.from(qty.options).forEach((o) => { if (Number(o.value) > max) o.remove(); });
+      }
+      const container = form.querySelector<HTMLElement>('.eventual-questions');
+      if (container && Array.isArray(def.questions)) {
+        container.replaceChildren(...(def.questions as Question[]).map((q) => renderQuestion(q, prefix, T)));
+      }
+      const siteKey = typeof def.turnstileSiteKey === 'string' ? def.turnstileSiteKey : '';
+      const box = form.querySelector<HTMLElement>('.eventual-turnstile');
+      if (siteKey && box) {
+        challenge.required = true;
+        box.hidden = false;
+        const api = await loadTurnstile();
+        const widgetId = api.render(box, {
+          sitekey: siteKey,
+          action: 'rsvp',
+          language: locale,
+          size: box.clientWidth < 300 ? "compact" : "flexible",
+          theme: "light",
+          callback: (token: string) => { challenge.token = token; },
+          'expired-callback': () => { challenge.token = ''; },
+          'error-callback': () => { challenge.token = ''; },
+        });
+        challenge.reset = () => { challenge.token = ''; api.reset(widgetId); };
+      }
+    } catch {
+      // Network trouble: the form stays usable; the server validates answers anyway.
+    }
+  }
+
+  function setupRsvpForms() {
+    const widgets = document.querySelectorAll('.eventual-rsvp-widget');
+    widgets.forEach((widget) => {
+      const form = widget.querySelector<HTMLFormElement>('.eventual-rsvp-form');
+      if (!form || form.dataset.initialized === 'true') return;
+      form.dataset.initialized = 'true';
+      const T = JSON.parse((widget as HTMLElement).dataset.i18n ?? '{}') as Strings;
+      const locale = (widget as HTMLElement).dataset.locale || 'en';
+
+      const timestampInput = form.querySelector<HTMLInputElement>('.eventual-form-timestamp');
+      const stamp = () => {
+        if (timestampInput) timestampInput.value = String(Date.now());
+      };
+      stamp();
+      let commandId = newCommandId();
+      let sentOnce = false; // the server skips its retry lookup for a command's first submission
+      let busy = false; // one submission at a time, even if a second click is forced
+      const challenge: Challenge = { required: false, token: '', reset() {} };
+
+      const submitBtn = form.querySelector<HTMLButtonElement>('.eventual-submit-btn');
+      const btnText = submitBtn?.querySelector<HTMLElement>('.btn-text');
+      const btnSpinner = submitBtn?.querySelector<HTMLElement>('.btn-spinner');
+      const statusMsg = form.querySelector<HTMLElement>('.eventual-status-msg');
+
+      const show = (kind: 'success' | 'waitlist' | 'error', title: string, text: string) => {
+        if (!statusMsg) return;
+        statusMsg.className = `eventual-status-msg ${kind}`;
+        statusMsg.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+        statusMsg.replaceChildren();
+        if (title) {
+          const strong = document.createElement('strong');
+          strong.textContent = `${title} `;
+          statusMsg.append(strong);
+        }
+        statusMsg.append(text);
+        statusMsg.style.display = 'block';
+        // On a phone the message sits below the form; bring it into view so the visitor sees the
+        // result or the error instead of wondering whether the tap worked.
+        statusMsg.scrollIntoView({ block: 'center' });
+      };
+
+      void loadFormDefinition(form, (widget as HTMLElement).id || 'eventual-rsvp', T, (msg) => {
+        show('error', '', msg);
+        if (submitBtn) submitBtn.disabled = true;
+      }, challenge, locale);
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (busy) return;
+        if (challenge.required && !challenge.token) {
+          show('error', '', T.challenge);
+          return;
+        }
+        busy = true;
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.setAttribute('aria-busy', 'true');
+        }
+        const idleLabel = btnText?.textContent ?? '';
+        if (btnText) btnText.textContent = T.submitting;
+        if (btnSpinner) btnSpinner.style.display = 'inline';
+        if (statusMsg) statusMsg.style.display = 'none';
+
+        const formData = new FormData(form);
+        const stampValue = Number(formData.get('formTimestamp'));
+        const payload: Record<string, unknown> = {
+          eventId: formData.get('eventId'),
+          occurrenceStart: formData.get('occurrenceStart') || '',
+          ...(formData.get('collection') ? { collection: formData.get('collection') } : {}),
+          displayName: formData.get('displayName'),
+          email: formData.get('email'),
+          quantity: Number(formData.get('quantity') || 1),
+          honeypot: formData.get('honeypot') || '',
+          commandId,
+          locale,
+          answers: collectAnswers(form),
+          ...(stampValue > 0 ? { formTimestamp: stampValue } : {}),
+          ...(challenge.token ? { turnstileToken: challenge.token } : {}),
+          ...(sentOnce ? {} : { firstAttempt: true }),
+        };
+        sentOnce = true;
+
+        try {
+          const res = await fetch(form.action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = unwrap(await res.json().catch(() => null));
+
+          showFieldErrors(form, data.error === 'INVALID_ANSWERS' ? data.fields : undefined, T);
+          if (data.ok) {
+            form.reset();
+            stamp(); // reset() clears the hidden timestamp
+            commandId = newCommandId(); // the next submission is a new registration
+            sentOnce = false;
+            const noEmail = data.email === 'none';
+            if (data.status === 'waitlist') {
+              const body = (noEmail ? T.waitlistBodyNoEmail : T.waitlistBody).replace('{n}', String(Number(data.waitlistPosition) || 1));
+              show('waitlist', T.waitlistTitle, body);
+            } else if (data.status === 'pending') {
+              show('waitlist', T.pendingTitle, noEmail ? T.pendingBodyNoEmail : T.pendingBody);
+            } else {
+              show('success', T.successTitle, noEmail ? T.successBodyNoEmail : T.successBody);
+            }
+            // The same cancel link the email carries, useful with or without email.
+            if (typeof data.manageUrl === 'string' && data.manageUrl && statusMsg) {
+              const row = document.createElement('p');
+              row.className = 'eventual-manage-link';
+              const link = document.createElement('a');
+              link.href = data.manageUrl;
+              link.textContent = T.manage;
+              row.append(link);
+              statusMsg.append(row);
+            }
+          } else if (data.error === 'INVALID_ANSWERS') {
+            show('error', '', T.checkAnswers);
+          } else if (data.error === 'MAX_QUANTITY_EXCEEDED') {
+            show('error', '', T.maxQuantity.replace('{n}', String(Number(data.maxAllowed))));
+          } else if (data.status === 'full') {
+            show('error', '', T.full);
+          } else {
+            show('error', '', T.errors[String(data.error)] ?? T.generic);
+          }
+        } catch {
+          show('error', '', T.network);
+        } finally {
+          busy = false;
+          // Turnstile tokens are single-use: every submission needs a fresh one.
+          if (challenge.required) challenge.reset();
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-busy');
+          }
+          if (btnText) btnText.textContent = idleLabel;
+          if (btnSpinner) btnSpinner.style.display = 'none';
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupRsvpForms);
+  } else {
+    setupRsvpForms();
+  }
+</script>

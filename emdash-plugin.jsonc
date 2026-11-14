@@ -1,0 +1,85 @@
+{
+  "slug": "eventual-attendance",
+  "publisher": "did:plc:g2hei4vcwndrdl3gdbb6np6c",
+  "license": "MIT",
+  "author": { "name": "Jaap Vermeulen", "url": "https://eventual.rsvp/", "email": "support@eventual.rsvp" },
+  "security": { "email": "security@eventual.rsvp" },
+  "name": "Eventual RSVP – Registrations",
+  "description": "Free registration for Eventual RSVP events: places that never overbook, a waiting list, optional approval, reminders and a door list.",
+  "keywords": ["events", "registration", "rsvp", "waiting list", "check-in"],
+  "sections": {
+    "description": { "file": "./docs/registry-description.md" }
+  },
+  "repo": "https://github.com/Vermeulen-Solutions/eventual-rsvp-registrations",
+  "release": {
+    "requires": { "env:emdash": ">=1.2.0 <2.0.0" },
+    "artifacts": {
+      "icon": { "file": "./images/registry/icon-v1.png" },
+      "banner": { "file": "./images/registry/banner-v1.png" }
+    }
+  },
+  "capabilities": [
+    "content:read",
+    "email:send",
+    "network:request"
+  ],
+  // cdn.jsdelivr.net: language packs, downloaded by the language-packs cron and checked against
+  // SHA-256 hashes pinned in this bundle.
+  "allowedHosts": ["challenges.cloudflare.com", "cdn.jsdelivr.net"],
+  "storage": {
+    "attendees": {
+      "indexes": [
+        "eventId",
+        ["eventId", "occurrenceStart"],
+        ["eventId", "status"],
+        ["eventId", "occurrenceStart", "status"],
+        "email",
+        "status",
+        ["status", "approvalDueAt"],
+        "organiserNotice",
+        ["translationGroup", "occurrenceStart"],
+        ["reminder", "status", "startsAt"],
+        ["mail", "status"],
+        "cancelTokenHash",
+        ["ipHash", "createdAt"],
+        "createdAt",
+        "retainFrom"
+      ]
+    },
+    "attendance_settings": {
+      "indexes": ["eventId"]
+    },
+    "waitlist_entries": {
+      "indexes": [
+        "eventId",
+        "poolKey",
+        ["poolKey", "occurrenceStart"],
+        ["poolKey", "occurrenceStart", "status"],
+        ["poolKey", "occurrenceStart", "status", "position"],
+        "status",
+        ["status", "offerExpiresAt"],
+        "offerExpiresAt",
+        "position",
+        "claimTokenHash",
+        "email",
+        "retainFrom"
+      ]
+    }
+  },
+  "admin": {
+    "pages": [
+      { "path": "/attendance", "label": "Registrations", "icon": "users" },
+      { "path": "/attendance/roster", "label": "Door list", "icon": "list-checks" },
+      { "path": "/attendance/settings", "label": "Registration settings", "icon": "settings" }
+    ],
+    "widgets": [{ "id": "recent", "title": "Recent registrations", "size": "half" }],
+    "editorPanels": [
+      {
+        "id": "event-attendance",
+        "title": "Registrations",
+        "route": "admin/editor/attendance",
+        "order": 20
+      }
+    ]
+  }
+}

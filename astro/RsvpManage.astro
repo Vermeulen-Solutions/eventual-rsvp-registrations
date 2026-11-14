@@ -1,0 +1,294 @@
+---
+import { LOCALES, localeDirection, rsvpText } from "./rsvp-i18n";
+/**
+ * Self-service page for cancellation and waitlist-claim links.
+ *
+ * Mount it at the path configured on the plugin's Attendance admin page (default /rsvp/manage).
+ * Email links carry the token in the URL fragment (#action=cancel&token=…), which browsers never
+ * send to the server, so tokens stay out of access logs and Referer headers. Nothing changes until
+ * the visitor presses the button: link scanners and prefetchers that only GET the page are harmless.
+ */
+interface Props {
+  apiBase?: string;
+  /** Any BCP 47 tag; texts use the closest shipped language until the booking's own loads. */
+  locale?: string;
+  class?: string;
+}
+
+const { apiBase = "/_emdash/api/plugins/eventual-attendance", locale = "en", class: className = "" } = Astro.props;
+
+const t = (await rsvpText(locale)).manage;
+// The page switches to the booking's own language once it loads, so it carries the texts of
+// every shipped language (about 1.5 KB each).
+const all = Object.fromEntries(await Promise.all(["en", ...LOCALES].map(async (lang) => [lang, (await rsvpText(lang)).manage] as const)));
+---
+
+<div class={`eventual-manage ${className}`} data-api-base={apiBase} lang={locale} dir={localeDirection(locale)} data-i18n={JSON.stringify(t.client)} data-i18n-all={JSON.stringify(Object.fromEntries(Object.entries(all).map(([lang, text]) => [lang, text.client])))} data-headings={JSON.stringify(Object.fromEntries(Object.entries(all).map(([lang, text]) => [lang, text.heading])))}>
+  <div class="eventual-manage-card">
+    <h2 class="eventual-manage-title">{t.heading}</h2>
+    <dl class="eventual-manage-details" hidden></dl>
+    <p class="eventual-manage-text">{t.loading}</p>
+    <button type="button" class="eventual-manage-btn" hidden></button>
+    <div class="eventual-manage-status" role="status" aria-live="polite" hidden></div>
+  </div>
+</div>
+
+<!-- Global on purpose: the script builds elements at runtime, which Astro's scoped styles
+     (data-astro-cid attributes) never reach. Every class carries a component prefix. -->
+<style is:global>
+  /* In the `eventual` cascade layer: unlayered site CSS overrides it, and sites that use layers
+     can place `eventual` below their own components layer. */
+  @layer eventual {
+  .eventual-manage [hidden] { display: none; }
+  .eventual-manage-details:not([hidden]) { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0; padding: 0.85rem 1rem; background: var(--eventual-field-bg, #fff); border: 1px solid var(--eventual-border, #e2e8f0); border-radius: var(--eventual-control-radius, 6px); }
+  .eventual-manage-details dt { color: var(--eventual-text-muted, #475569); font-size: 0.85rem; }
+  .eventual-manage-details dd { margin: 0; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .eventual-manage {
+    font-family: inherit;
+    color: var(--eventual-text, #0f172a);
+    margin: 2rem 0;
+  }
+  .eventual-manage-card {
+    box-sizing: border-box;
+    max-width: 480px;
+    border: 1px solid var(--eventual-border, #e2e8f0);
+    background: var(--eventual-bg, #f8fafc);
+    border-radius: var(--eventual-radius, 8px);
+    padding: 1.5rem;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .eventual-manage-title {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  .eventual-manage-text {
+    margin: 0;
+  }
+  .eventual-manage-btn {
+    align-self: flex-start;
+    background: var(--eventual-primary, #0369a1);
+    color: var(--eventual-on-primary, #fff);
+    border: none;
+    border-radius: var(--eventual-button-radius, 6px);
+    padding: 0.7rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .eventual-manage-btn:hover {
+    background: var(--eventual-primary-hover, #075985);
+  }
+  .eventual-manage-btn:focus-visible {
+    outline: 2px solid var(--eventual-focus, var(--eventual-primary, #0369a1));
+    outline-offset: 2px;
+  }
+  .eventual-manage-btn.danger {
+    background: var(--eventual-danger, #b91c1c);
+  }
+  .eventual-manage-btn.danger:hover {
+    background: var(--eventual-error, #991b1b);
+  }
+  .eventual-manage-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .eventual-manage-status {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    border-radius: var(--eventual-control-radius, 6px);
+  }
+  .eventual-manage-status.success {
+    background: var(--eventual-success-bg, #dcfce7);
+    color: var(--eventual-success, #166534);
+    border: 1px solid #bbf7d0;
+  }
+  .eventual-manage-status.info {
+    background: var(--eventual-info-bg, #f1f5f9);
+    color: var(--eventual-text, #334155);
+    border: 1px solid var(--eventual-border, #e2e8f0);
+  }
+  .eventual-manage-status.error {
+    background: var(--eventual-error-bg, #fee2e2);
+    color: var(--eventual-error, #991b1b);
+    border: 1px solid #fecaca;
+  }
+  }
+</style>
+
+<script>
+
+  function unwrap(json: any): { ok: boolean; [key: string]: any } {
+    if (json && typeof json === 'object' && 'success' in json) {
+      if (json.success) return json.data ?? { ok: false };
+      return { ok: false, error: json.error?.code ?? 'REQUEST_FAILED' };
+    }
+    return json ?? { ok: false };
+  }
+
+  async function setup(root: HTMLElement) {
+    if (root.dataset.initialized === 'true') return;
+    root.dataset.initialized = 'true';
+
+    const text = root.querySelector<HTMLElement>('.eventual-manage-text')!;
+    const button = root.querySelector<HTMLButtonElement>('.eventual-manage-btn')!;
+    const status = root.querySelector<HTMLElement>('.eventual-manage-status')!;
+    const apiBase = root.dataset.apiBase ?? '/_emdash/api/plugins/eventual-attendance';
+    // Starts in the page's language; switches to the booking's own language once it is known,
+    // so one manage page serves French and English emails.
+    let T = JSON.parse(root.dataset.i18n ?? '{}') as Record<string, any>;
+    let ERRORS = T.errors as Record<string, string>;
+
+    const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const action = params.get('action');
+    const token = params.get('token') ?? '';
+    // Drop the token from the address bar and history once it is in memory.
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+
+    if ((action !== 'cancel' && action !== 'claim') || !/^[0-9a-f]{64}$/.test(token)) {
+      text.textContent = T.incomplete;
+      return;
+    }
+
+    const isClaim = action === 'claim';
+    const details = root.querySelector<HTMLElement>('.eventual-manage-details')!;
+    const when = (iso: string, timeZone?: string, allDay?: boolean) => {
+      const d = new Date(iso);
+      if (!iso || Number.isNaN(d.getTime())) return '';
+      try {
+        return allDay
+          ? d.toLocaleDateString(T.dateLocale, { dateStyle: 'full', timeZone: 'UTC' })
+          : d.toLocaleString(T.dateLocale, { dateStyle: 'full', timeStyle: 'short', ...(timeZone ? { timeZone, timeZoneName: 'short' } : {}) });
+      } catch {
+        return d.toLocaleString(T.dateLocale, { dateStyle: 'full', timeStyle: 'short' });
+      }
+    };
+    const show = (rows: Array<[string, string]>) => {
+      details.replaceChildren(...rows.filter(([, v]) => v).flatMap(([k, v]) => {
+        const dt = document.createElement('dt');
+        dt.textContent = k;
+        const dd = document.createElement('dd');
+        dd.textContent = v; // stored text, never HTML
+        return [dt, dd];
+      }));
+      details.hidden = false;
+    };
+    const done = (message: string, kind: 'success' | 'error' | 'info' = 'info') => {
+      text.hidden = true;
+      button.hidden = true;
+      status.className = `eventual-manage-status ${kind}`;
+      status.textContent = message;
+      status.hidden = false;
+    };
+
+    let booking: any;
+    try {
+      const res = await fetch(`${apiBase}/manage/lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, token }),
+      });
+      booking = unwrap(await res.json().catch(() => null));
+    } catch {
+      booking = { ok: false, error: 'NETWORK' };
+    }
+    if (!booking.ok) {
+      done(booking.error === 'NETWORK' ? T.networkReload : ERRORS[String(booking.error)] ?? T.notFound, 'error');
+      return;
+    }
+
+    const all = JSON.parse(root.dataset.i18nAll ?? '{}') as Record<string, Record<string, any>>;
+    if (booking.locale && all[booking.locale]) {
+      T = all[booking.locale];
+      ERRORS = T.errors as Record<string, string>;
+      root.lang = booking.locale;
+      root.dir = ["ar", "he"].includes(booking.locale) ? "rtl" : "ltr";
+      const heading = root.querySelector<HTMLElement>('.eventual-manage-title');
+      const headings = JSON.parse(root.dataset.headings ?? '{}') as Record<string, string>;
+      if (heading && headings[booking.locale]) heading.textContent = headings[booking.locale];
+    }
+    let category = "other";
+    try { category = new Intl.PluralRules(root.lang || "en").select(booking.quantity); } catch {}
+    const seatWord = category === "one" ? T.seat : category === "two" && T.seatsTwo ? T.seatsTwo : category === "few" && T.seatsFew ? T.seatsFew : category === "many" && T.seatsMany ? T.seatsMany : T.seats;
+    const seats = `${booking.quantity} ${seatWord}`;
+    show([
+      [T.event, booking.eventTitle],
+      [T.date, when(booking.startsAt ?? booking.occurrenceStart, booking.timezone, booking.allDay)],
+      [T.seatsLabel, seats],
+      ...(isClaim && booking.offerExpiresAt && booking.state === 'offered' ? [[T.claimBefore, when(booking.offerExpiresAt)] as [string, string]] : []),
+    ]);
+
+    if (isClaim) {
+      if (booking.state === 'claimed') return done(ERRORS.ALREADY_CLAIMED, 'success');
+      if (booking.state === 'expired') return done(ERRORS.OFFER_EXPIRED, 'error');
+      if (booking.state !== 'offered') return done(ERRORS.OFFER_NO_LONGER_AVAILABLE, 'error');
+      text.textContent = T.claimQuestion.replace('{seats}', seats);
+    } else {
+      if (booking.state === 'cancelled') return done(T.alreadyCancelled, 'info');
+      if (booking.state === 'attended') return done(T.checkedIn, 'info');
+      text.textContent = booking.state === 'waitlist'
+        ? T.leaveQuestion
+        : booking.state === 'pending'
+        ? T.pendingQuestion
+        : T.cancelQuestion.replace('{seats}', seats).replace('{seatWord}', seatWord);
+    }
+    button.textContent = isClaim
+      ? T.claimButton
+      : booking.state === 'waitlist'
+      ? T.leaveButton
+      : booking.state === 'pending'
+      ? T.withdrawButton
+      : T.cancelButton;
+    button.classList.toggle('danger', !isClaim);
+    button.hidden = false;
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      status.hidden = true;
+      try {
+        const res = await fetch(`${apiBase}/${isClaim ? 'waitlist/claim' : 'cancel'}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        const data = unwrap(await res.json().catch(() => null));
+        status.className = `eventual-manage-status ${data.ok ? 'success' : 'error'}`;
+        status.setAttribute('role', data.ok ? 'status' : 'alert');
+        status.textContent = data.ok
+          ? isClaim
+            ? T.claimed
+            : booking.state === 'waitlist'
+            ? T.left
+            : booking.state === 'pending'
+            ? T.withdrawn
+            : T.cancelled
+          : ERRORS[String(data.error)] ?? T.wentWrong;
+        status.hidden = false;
+        if (data.ok) {
+          button.hidden = true;
+          text.hidden = true; // the question is answered; the result replaces it
+        } else button.disabled = false;
+      } catch {
+        status.className = 'eventual-manage-status error';
+        status.textContent = T.network;
+        status.hidden = false;
+        button.disabled = false;
+      } finally {
+        button.removeAttribute('aria-busy');
+      }
+    });
+  }
+
+  function init() {
+    document.querySelectorAll<HTMLElement>('.eventual-manage').forEach((root) => void setup(root));
+    // Opening another email link in the same tab only changes the fragment: start over.
+    window.addEventListener('hashchange', () => { if (location.hash) location.reload(); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+</script>

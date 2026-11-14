@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.test-results/
+.coverage/
+*.tgz
+*.tar.gz
+.DS_Store
+.agents/

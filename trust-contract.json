@@ -1,0 +1,61 @@
+{
+  "capabilities": [
+    "content:read",
+    "email:send",
+    "network:request"
+  ],
+  "allowedHosts": [
+    "cdn.jsdelivr.net",
+    "challenges.cloudflare.com"
+  ],
+  "hooks": [
+    "content:beforeDelete",
+    "cron",
+    "plugin:activate"
+  ],
+  "publicRoutes": [
+    "GET calendar",
+    "GET roster/download",
+    "GET rsvp/form",
+    "POST cancel",
+    "POST manage/lookup",
+    "POST rsvp",
+    "POST waitlist/claim"
+  ],
+  "storage": {
+    "attendees": [
+      "cancelTokenHash",
+      "createdAt",
+      "email",
+      "eventId",
+      "eventId+occurrenceStart",
+      "eventId+occurrenceStart+status",
+      "eventId+status",
+      "ipHash+createdAt",
+      "mail+status",
+      "organiserNotice",
+      "reminder+status+startsAt",
+      "retainFrom",
+      "status",
+      "status+approvalDueAt",
+      "translationGroup+occurrenceStart"
+    ],
+    "attendance_settings": [
+      "eventId"
+    ],
+    "waitlist_entries": [
+      "claimTokenHash",
+      "email",
+      "eventId",
+      "offerExpiresAt",
+      "poolKey",
+      "poolKey+occurrenceStart",
+      "poolKey+occurrenceStart+status",
+      "poolKey+occurrenceStart+status+position",
+      "position",
+      "retainFrom",
+      "status",
+      "status+offerExpiresAt"
+    ]
+  }
+}
