@@ -8,14 +8,24 @@
   "description": "Free registration for Eventual RSVP events: places that never overbook, a waiting list, optional approval, reminders and a door list.",
   "keywords": ["events", "registration", "rsvp", "waiting list", "check-in"],
   "sections": {
-    "description": { "file": "./docs/registry-description.md" }
+    "description": { "file": "./docs/registry-description.md" },
+    "installation": { "file": "./docs/registry-installation.md" },
+    "changelog": { "file": "./docs/registry-changelog.md" }
   },
   "repo": "https://github.com/Vermeulen-Solutions/eventual-rsvp-registrations",
   "release": {
     "requires": { "env:emdash": ">=1.2.0 <2.0.0" },
     "artifacts": {
       "icon": { "file": "./images/registry/icon-v1.png" },
-      "banner": { "file": "./images/registry/banner-v1.png" }
+      "banner": { "file": "./images/registry/banner-v1.png" },
+      "screenshots": [
+        { "file": "./images/registry/screenshots-v1/1-registration-form.png" },
+        { "file": "./images/registry/screenshots-v1/2-confirmed.png" },
+        { "file": "./images/registry/screenshots-v1/3-event-panel.png" },
+        { "file": "./images/registry/screenshots-v1/4-overview.png" },
+        { "file": "./images/registry/screenshots-v1/5-registrations.png" },
+        { "file": "./images/registry/screenshots-v1/6-door-list.png" }
+      ]
     }
   },
   "capabilities": [

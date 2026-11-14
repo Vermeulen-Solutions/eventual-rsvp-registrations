@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 (2026-11-14)
+
+### Changed
+
+- Registry page: screenshots, installation and changelog tabs, and the source link to the public repository (github.com/Vermeulen-Solutions/eventual-rsvp-registrations). No code or permission changes.
+
 ## 0.1.0 (2026-11-14)
 
 ### Added
