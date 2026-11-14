@@ -47,7 +47,7 @@
     "@emdash-cms/admin": "1.4.0",
     "@emdash-cms/plugin-cli": "0.13.5",
     "@emdash-cms/plugin-test": "0.2.11",
-    "@vermeulen.solutions/eventual-capacity": "github:Vermeulen-Solutions/eventual-rsvp-library#bea86273e4161391019981f0cc9815fbfb9ac7e4",
+    "@vermeulen.solutions/eventual-capacity": "github:Vermeulen-Solutions/eventual-rsvp-library#91ad9bf17fa3d82163b39d10115b13204b11d2f3",
     "emdash": "1.4.0",
     "typescript": "^5.9.0",
     "vitest": "^4.1.0"
