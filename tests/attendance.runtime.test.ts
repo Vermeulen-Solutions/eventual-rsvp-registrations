@@ -1185,6 +1185,24 @@ describe("0.2: registration questions", () => {
     expect((await rsvp(eventId)).result).toMatchObject({ ok: false, error: "RSVP_DISABLED" });
   });
 
+  it("keeps older differing values when the panel's own form is saved", async () => {
+    // Saving another setting must not quietly close (or reopen) registration: only the button drops them.
+    const eventId = await makeEvent({ inventory_mode: null, capacity: 10 });
+    const pool = (await host.inspect.content.get("events", eventId))!.translationGroup || eventId;
+    await host.fixtures.plugin.storage("attendance_settings", pool, {
+      eventId: pool, enabled: true, capacity: 3, allowWaitlist: false, maxPerRegistration: 2, questions: [],
+    });
+    await host.admin.submitEditorPanel("event-attendance", "events", eventId, "save-attendance-settings", {
+      maxPerRegistration: 3, requireApproval: false, approvalHours: 48, replyTo: "",
+    });
+    const stored = (await host.inspect.storage.get("attendance_settings", pool)) as any;
+    expect(stored).toMatchObject({ enabled: true, capacity: 3, maxPerRegistration: 3 });
+    // Equal to the event's field (no waiting list): not kept.
+    expect(stored.allowWaitlist).toBeUndefined();
+    expect((await rsvp(eventId)).result).toMatchObject({ ok: true, status: "going" });
+    expect(JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId))).toContain("Older settings in this panel still apply");
+  });
+
   it("keeps all three settings in the panel for a collection without the fields", async () => {
     await host.fixtures.collection({ slug: "meetups", label: "Meetups", fields: [
       { slug: "title", label: "Title", type: "string" }, { slug: "start", label: "Start", type: "datetime" },

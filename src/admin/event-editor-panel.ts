@@ -202,12 +202,14 @@ export async function handleEventEditorPanel(
     }
     if (errors.length === 0) {
       await save({
-        // The panel's form leaves out what the event form owns; scripts may still send it.
-        enabled: "enabled" in vals || !fields.mode ? vals.enabled === true : undefined,
-        // Not sent (the event form owns it): store nothing, so the event's field applies.
-        capacity: "capacity" in vals ? safeInt(vals.capacity, 0, 100_000, current.capacity) : undefined,
+        // The panel's form leaves out what the event form owns; scripts may still send it. Not
+        // sent: keep what was stored, so saving another setting never quietly opens or closes
+        // registration. `save` drops a copy equal to the field; a differing one stays until
+        // "Use the event's fields".
+        enabled: "enabled" in vals || !fields.mode ? vals.enabled === true : stored.enabled,
+        capacity: "capacity" in vals ? safeInt(vals.capacity, 0, 100_000, current.capacity) : fields.capacity ? stored.capacity : undefined,
         maxPerRegistration: safeInt(vals.maxPerRegistration, 1, 20, DEFAULT_MAX_PER_REGISTRATION),
-        allowWaitlist: "allowWaitlist" in vals ? vals.allowWaitlist === true : undefined,
+        allowWaitlist: "allowWaitlist" in vals ? vals.allowWaitlist === true : fields.waitlist ? stored.allowWaitlist : undefined,
         requireApproval: vals.requireApproval === true,
         approvalHours: safeInt(vals.approvalHours, 1, 720, current.approvalHours ?? DEFAULT_APPROVAL_HOURS),
         replyTo: normalizeEmail(vals.replyTo),
