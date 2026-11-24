@@ -4,7 +4,7 @@ Free registration for [Eventual RSVP](https://github.com/Vermeulen-Solutions/eve
 
 **Website:** [eventual.rsvp/registrations](https://eventual.rsvp/registrations/), with the [documentation](https://eventual.rsvp/docs/#attendance), [install guide](https://eventual.rsvp/install/) and [support](https://eventual.rsvp/support/).
 
-**Version 0.1.1.** Registrations, the waiting list, approval, reminders, Turnstile, door check-in and personal-data erasure work and are tested on EmDash's runtime test host, in the local browser test site on Node, and on a Cloudflare preview (its emails are not yet proven there).
+**Version 0.2.0.** Registrations, the waiting list, approval, reminders, Turnstile, door check-in and personal-data erasure work and are tested on EmDash's runtime test host, in the local browser test site on Node, and on a Cloudflare preview (its emails are not yet proven there).
 
 ## What it does
 
@@ -72,7 +72,7 @@ export default defineConfig({
 | :--- | :--- |
 | `content:read` | Read the event (title, dates, published or not) a booking is for |
 | `email:send` | Confirmations, waitlist offers, approval notices, reminders |
-| `schema:read` | See whether an event collection has the capacity fields, so the event panel leaves places, the waiting list and opening to the event form even while those fields are empty (read-only; added in the next release) |
+| `schema:read` | See whether an event collection has the capacity fields, so the event panel leaves places, the waiting list and opening to the event form even while those fields are empty (read-only; added in 0.2.0) |
 | `network:request` to `challenges.cloudflare.com` | Check Cloudflare Turnstile tokens, only when you turn Turnstile on |
 | `network:request` to `cdn.jsdelivr.net` | Download the admin and email translations (language packs from `@vermeulen.solutions/eventual-locales`); each file is checked against a hash built into the plugin |
 
