@@ -1112,14 +1112,116 @@ describe("0.2: registration questions", () => {
     // The way to the list is there before anyone has registered.
     expect(loaded).toContain('"action_id":"view-registrations"');
 
-    // A value saved earlier (or by a script) still wins and is pointed out, but only when it differs.
+    // A value saved by a script still wins and is pointed out, but only when it differs. One
+    // that matches the event's field is not kept, so a later change to the field applies.
     await host.admin.submitEditorPanel("event-attendance", "events", eventId, "save-attendance-settings", { enabled: true, capacity: 7 });
-    expect(JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId))).not.toContain("overrides the event's places");
+    expect(JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId))).not.toContain("Older settings in this panel");
+    expect(((await host.inspect.storage.get("attendance_settings", pool)) as any).capacity).toBeUndefined();
     await host.admin.submitEditorPanel("event-attendance", "events", eventId, "save-attendance-settings", { enabled: true, capacity: 3 });
-    expect(JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId))).toContain("overrides the event's places");
+    expect(JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId))).toContain("Older settings in this panel");
 
     const nav = await host.admin.actEditorPanel("event-attendance", "events", eventId, "view-registrations");
     expect(nav.navigate).toEqual({ kind: "plugin-page", path: "/attendance" });
+  });
+
+  it("shows open state, places and waiting list read-only when the collection has the fields, even empty ones", async () => {
+    // inventory_mode, capacity and allow_waitlist all empty: EmDash leaves them out of the data.
+    const eventId = await makeEvent({ inventory_mode: null });
+    const data = (await host.inspect.content.get("events", eventId))!.data as Record<string, unknown>;
+    expect("capacity" in data || "allow_waitlist" in data || "inventory_mode" in data).toBe(false);
+
+    const loaded = JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId));
+    expect(loaded).not.toContain('"action_id":"enabled"');
+    expect(loaded).not.toContain('"action_id":"capacity"');
+    expect(loaded).not.toContain('"action_id":"allowWaitlist"');
+    expect(loaded).toContain("From the event form: Closed for registration · No limit on places · no waiting list.");
+    expect(loaded).toContain("is set to “Rsvp”");
+    // The settings without a field stay in the panel.
+    expect(loaded).toContain('"action_id":"maxPerRegistration"');
+    expect(loaded).toContain('"action_id":"requireApproval"');
+    expect(loaded).toContain('"action_id":"replyTo"');
+    expect(loaded).not.toContain("Older settings in this panel");
+    const fr = JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId, { locale: "fr" } as any));
+    expect(fr).toContain("D’après le formulaire de l’événement : Inscriptions fermées · Places sans limite · pas de liste d’attente.");
+    expect(fr).not.toContain('"action_id":"enabled"');
+
+    // Saving the panel's own form (as the admin sends it) opens nothing and stores none of the three.
+    const pool = (await host.inspect.content.get("events", eventId))!.translationGroup || eventId;
+    await host.admin.submitEditorPanel("event-attendance", "events", eventId, "save-attendance-settings", {
+      maxPerRegistration: 2, requireApproval: false, approvalHours: 48, replyTo: "",
+    });
+    const stored = (await host.inspect.storage.get("attendance_settings", pool)) as any;
+    expect(stored).toMatchObject({ maxPerRegistration: 2 });
+    expect(stored.enabled).toBeUndefined();
+    expect(stored.capacity).toBeUndefined();
+    expect(stored.allowWaitlist).toBeUndefined();
+    expect((await rsvp(eventId)).result).toMatchObject({ ok: false, error: "RSVP_DISABLED" });
+  });
+
+  it("points out values an older version stored, and drops them on request", async () => {
+    const eventId = await makeEvent({ inventory_mode: null, capacity: 10 });
+    const pool = (await host.inspect.content.get("events", eventId))!.translationGroup || eventId;
+    // As the old panel saved them: its switch, places and waiting list, next to a setting it keeps.
+    await host.fixtures.plugin.storage("attendance_settings", pool, {
+      eventId: pool, enabled: true, capacity: 3, allowWaitlist: true, maxPerRegistration: 2, questions: [],
+    });
+    expect((await rsvp(eventId)).result).toMatchObject({ ok: true, status: "going" });
+
+    const loaded = JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "events", eventId));
+    expect(loaded).toContain("Older settings in this panel still apply");
+    expect(loaded).toContain('"action_id":"use-event-fields"');
+    // The status line shows what applies; the read-only line what the event's fields say.
+    expect(loaded).toContain("Open for registration · 1 of 3 places taken");
+    expect(loaded).toContain("From the event form: Closed for registration · 10 places · no waiting list.");
+
+    const cleared = await host.admin.actEditorPanel("event-attendance", "events", eventId, "use-event-fields");
+    expect(cleared.toast).toMatchObject({ type: "success", message: "The event's own fields apply again." });
+    expect(JSON.stringify(cleared.blocks)).not.toContain("Older settings in this panel");
+    const stored = (await host.inspect.storage.get("attendance_settings", pool)) as any;
+    expect(stored).toMatchObject({ maxPerRegistration: 2 });
+    expect(stored.enabled).toBeUndefined();
+    expect(stored.capacity).toBeUndefined();
+    expect(stored.allowWaitlist).toBeUndefined();
+    expect((await rsvp(eventId)).result).toMatchObject({ ok: false, error: "RSVP_DISABLED" });
+  });
+
+  it("keeps all three settings in the panel for a collection without the fields", async () => {
+    await host.fixtures.collection({ slug: "meetups", label: "Meetups", fields: [
+      { slug: "title", label: "Title", type: "string" }, { slug: "start", label: "Start", type: "datetime" },
+    ] } as any);
+    await host.admin.submit("/attendance", "save-config", { eventCollection: "events, meetups", managePagePath: "/rsvp/manage" });
+    try {
+      const item = await host.fixtures.content("meetups", { data: { title: "Meetup" }, status: "published" } as any);
+      const loaded = JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "meetups", item.id));
+      expect(loaded).toContain('"action_id":"enabled"');
+      expect(loaded).toContain('"action_id":"capacity"');
+      expect(loaded).toContain('"action_id":"allowWaitlist"');
+      expect(loaded).not.toContain("From the event form");
+
+      await host.admin.submitEditorPanel("event-attendance", "meetups", item.id, "save-attendance-settings", {
+        enabled: true, capacity: 1, allowWaitlist: false, maxPerRegistration: 1,
+      });
+      expect((await rsvp(item.id, { collection: "meetups" })).result).toMatchObject({ ok: true, status: "going" });
+      expect((await rsvp(item.id, { collection: "meetups" })).result).toMatchObject({ ok: false, status: "full" });
+    } finally {
+      await host.admin.submit("/attendance", "save-config", { eventCollection: "events", managePagePath: "/rsvp/manage" });
+    }
+  });
+
+  it("says one neutral line on pages and other content, and points only event collections to the settings", async () => {
+    await host.fixtures.collection({ slug: "articles", label: "Articles", fields: [{ slug: "title", label: "Title", type: "string" }] } as any);
+    const page = await host.fixtures.content("articles", { data: { title: "About" }, status: "published" } as any);
+    const onPage = await host.admin.loadEditorPanel("event-attendance", "articles", page.id);
+    expect(onPage.blocks).toEqual([{ type: "context", text: "Registrations are not used for this kind of content." }]);
+
+    const fr = JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "articles", page.id, { locale: "fr" } as any));
+    expect(fr).not.toContain("Add this collection");
+    expect(fr).not.toContain("Ajoutez cette collection");
+
+    // An events collection the site builder hasn't listed yet still gets the pointer.
+    await host.fixtures.collection({ slug: "workshops", label: "Workshops", fields: EVENT_FIELDS } as any);
+    const workshop = await host.fixtures.content("workshops", { data: { title: "Workshop" }, status: "published" } as any);
+    expect(JSON.stringify(await host.admin.loadEditorPanel("event-attendance", "workshops", workshop.id))).toContain("Add this collection");
   });
 
   it("refuses bad question lines without saving anything", async () => {
@@ -1131,7 +1233,10 @@ describe("0.2: registration questions", () => {
     expect(JSON.stringify(bad.blocks)).toContain("Line 1: a choice from a list needs at least one choice");
     expect(JSON.stringify(bad.blocks)).toContain("Line 2:");
     const pool = (await host.inspect.content.get("events", eventId))!.translationGroup || eventId;
-    expect(await host.inspect.storage.get("attendance_settings", pool)).toMatchObject({ capacity: 5 });
+    // The first save stays: no capacity of its own (it matched the event's field), not the 9.
+    const stored = (await host.inspect.storage.get("attendance_settings", pool)) as any;
+    expect(stored).toMatchObject({ maxPerRegistration: 3 });
+    expect(stored.capacity).toBeUndefined();
   });
 
   it("shows question parse errors in French when admin locale is fr", async () => {

@@ -18,6 +18,7 @@ import {
 import { getPluginConfig, eventCollections } from "../domain/config";
 import { DEFAULT_APPROVAL_HOURS, DEFAULT_MAX_PER_REGISTRATION, resolveAttendance } from "../domain/event-settings";
 import { attendanceCtx } from "../domain/waitlist";
+import { eventFieldsOf, type EventFields } from "../domain/event-fields";
 import { adminText, type AdminText } from "./i18n";
 import { languagePack } from "../i18n";
 import { resolveLocale } from "../locales/index.mjs";
@@ -29,6 +30,11 @@ function safeInt(value: unknown, min: number, max: number, fallback: number): nu
   if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return fallback;
   const n = Number(value);
   return Number.isSafeInteger(n) ? Math.max(min, Math.min(max, n)) : fallback;
+}
+
+function toCapacity(value: unknown): number {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n > 0 ? n : 0;
 }
 
 const text = (value: unknown, max: number): string => (typeof value === "string" ? value.slice(0, max) : "");
@@ -100,11 +106,14 @@ function questionForm(t: AdminText, draft: QuestionDraft, isNew: boolean): Block
 
 /**
  * Per-event registration panel. Settings are stored once per translation group (pool), so every
- * language version of an event shares capacity, limits and the waitlist. ≤ 6 calls.
+ * language version of an event shares capacity, limits and the waitlist. ≤ 8 calls.
  *
- * Capacity and the waitlist switch have one home: when the event's collection carries the capacity
- * field pack, they are edited in the event form and only shown here. The panel then stores no
- * value for them, so the event's fields apply. Collections without those fields get them here.
+ * Capacity, the waitlist switch and the open/closed state have one home: when the event's
+ * collection carries the capacity field pack (`capacity`, `allow_waitlist`, `inventory_mode`),
+ * they are edited in the event form and only shown here, whatever the entry's values. The panel
+ * then stores no value for them, so the event's fields apply. A field the collection lacks is set
+ * here instead. Values stored before (older version, script) still win; the panel says so and
+ * offers to drop them.
  */
 export async function handleEventEditorPanel(
   routeCtx: SandboxedRouteContext,
@@ -120,10 +129,16 @@ export async function handleEventEditorPanel(
   const actx = attendanceCtx(ctx);
   const config = await getPluginConfig(actx, budget);
   if (!eventCollections(config).includes(entry.collection)) {
+    // Pages and other content: one neutral line, so nobody is invited to make them bookable.
+    // Only a collection that carries the capacity fields (an events collection the site builder
+    // has not listed yet) gets the pointer to the settings.
+    const other = (await budget.call(() => ctx.content!.get(entry.collection, entry.id))) as EventContent | null;
+    const found = await eventFieldsOf(ctx as any, budget, entry.collection, (other?.data ?? {}) as Record<string, unknown>);
+    const looksLikeEvents = found.mode || found.capacity || found.waitlist;
     return {
       blocks: [{
         type: "context",
-        text: t.notConfigured(config.eventCollection),
+        text: looksLikeEvents ? t.notConfigured(config.eventCollection) : t.notEventContent,
       }],
     };
   }
@@ -148,11 +163,27 @@ export async function handleEventEditorPanel(
   let rejected: QuestionDraft | null = null;
 
   const data = (event.data ?? {}) as Record<string, unknown>;
-  // The event form owns these when the collection has the fields (a null value still counts).
-  const eventHasCapacity = "capacity" in data;
-  const eventHasWaitlist = "allow_waitlist" in data;
+  // The event form owns these when the collection has the fields, filled in or not.
+  const fields: EventFields = await eventFieldsOf(ctx as any, budget, entry.collection, data);
+  const fieldOpen = data.inventory_mode === "rsvp";
+  const fieldCapacity = toCapacity(data.capacity);
+  const fieldWaitlist = Boolean(data.allow_waitlist);
+
+  /** Which stored values of field-owned settings differ from the event's fields. */
+  const overrides = (rec: Partial<EventAttendanceConfig>) => ({
+    enabled: fields.mode && typeof rec.enabled === "boolean" && rec.enabled !== fieldOpen,
+    capacity: fields.capacity && rec.capacity != null && toCapacity(rec.capacity) !== fieldCapacity,
+    waitlist: fields.waitlist && rec.allowWaitlist != null && Boolean(rec.allowWaitlist) !== fieldWaitlist,
+  });
 
   const save = async (next: Partial<EventAttendanceConfig>, message: string) => {
+    // A stored copy of a field-owned setting that matches the field changes nothing today but
+    // would hide a later change to the field: drop it. A differing one stays (shown below).
+    next = { ...next };
+    const differs = overrides(next);
+    if (fields.mode && !differs.enabled) delete next.enabled;
+    if (fields.capacity && !differs.capacity) delete next.capacity;
+    if (fields.waitlist && !differs.waitlist) delete next.allowWaitlist;
     // Keyed by pool: one record for every translation of this event.
     await budget.call(() => settings.put(poolKey, { ...next, eventId: poolKey }));
     stored = next;
@@ -171,7 +202,8 @@ export async function handleEventEditorPanel(
     }
     if (errors.length === 0) {
       await save({
-        enabled: vals.enabled === true,
+        // The panel's form leaves out what the event form owns; scripts may still send it.
+        enabled: "enabled" in vals || !fields.mode ? vals.enabled === true : undefined,
         // Not sent (the event form owns it): store nothing, so the event's field applies.
         capacity: "capacity" in vals ? safeInt(vals.capacity, 0, 100_000, current.capacity) : undefined,
         maxPerRegistration: safeInt(vals.maxPerRegistration, 1, 20, DEFAULT_MAX_PER_REGISTRATION),
@@ -218,6 +250,13 @@ export async function handleEventEditorPanel(
       [list[index - 1], list[index]] = [list[index]!, list[index - 1]!];
       await save({ ...stored, questions: list }, t.qMoved);
     }
+  } else if (action === "use-event-fields") {
+    // Drop the stored copies of field-owned settings, so the event's own fields apply again.
+    const next = { ...stored };
+    if (fields.mode) delete next.enabled;
+    if (fields.capacity) delete next.capacity;
+    if (fields.waitlist) delete next.allowWaitlist;
+    await save(next, t.usingEventFields);
   } else if (action === "view-registrations") {
     // Open the registrations page already narrowed to this event.
     await budget.call(() => ctx.kv.set(`state:admin-filter:${routeCtx.user?.id ?? "shared"}`, { pool: poolKey }));
@@ -264,16 +303,17 @@ export async function handleEventEditorPanel(
     accessory: viewButton,
   });
 
-  const fields: any[] = [
-    { type: "toggle", action_id: "enabled", label: t.enable, description: t.enableHelp, initial_value: current.enabled },
-  ];
-  if (!eventHasCapacity) {
-    fields.push({ type: "number_input", action_id: "capacity", label: t.capacityLimit, min: 0, max: 100000, initial_value: current.capacity });
+  const inputs: any[] = [];
+  if (!fields.mode) {
+    inputs.push({ type: "toggle", action_id: "enabled", label: t.enable, description: t.enableHelp, initial_value: current.enabled });
   }
-  if (!eventHasWaitlist) {
-    fields.push({ type: "toggle", action_id: "allowWaitlist", label: t.allowWaitlist, description: t.allowWaitlistHelp, initial_value: current.allowWaitlist });
+  if (!fields.capacity) {
+    inputs.push({ type: "number_input", action_id: "capacity", label: t.capacityLimit, min: 0, max: 100000, initial_value: current.capacity });
   }
-  fields.push(
+  if (!fields.waitlist) {
+    inputs.push({ type: "toggle", action_id: "allowWaitlist", label: t.allowWaitlist, description: t.allowWaitlistHelp, initial_value: current.allowWaitlist });
+  }
+  inputs.push(
     { type: "number_input", action_id: "maxPerRegistration", label: t.maxPerBooking, min: 1, max: 20, initial_value: current.maxPerRegistration },
     { type: "toggle", action_id: "requireApproval", label: t.requireApproval, description: t.requireApprovalHelp, initial_value: current.requireApproval },
     {
@@ -288,21 +328,28 @@ export async function handleEventEditorPanel(
     { type: "text_input", action_id: "replyTo", label: t.eventReplyTo, placeholder: config.replyTo || undefined, initial_value: current.replyTo ?? "" }
   );
 
-  if (eventHasCapacity || eventHasWaitlist) {
+  if (fields.mode || fields.capacity || fields.waitlist) {
+    // Read-only: what the event's own fields say. The status line above shows what applies.
     const parts: string[] = [];
-    if (eventHasCapacity) parts.push(current.capacity > 0 ? t.fromEventPlaces(current.capacity) : t.fromEventNoLimit);
-    if (eventHasWaitlist) parts.push(current.allowWaitlist ? t.fromEventWaitlistOn : t.fromEventWaitlistOff);
-    // Values saved here before the event form owned them still win until the next save. That is
-    // only worth a word when they differ from the event's fields: the same values change nothing.
-    const overridden =
-      (eventHasCapacity && stored.capacity != null && Number(stored.capacity) !== (Number(data.capacity) || 0)) ||
-      (eventHasWaitlist && stored.allowWaitlist != null && Boolean(stored.allowWaitlist) !== Boolean(data.allow_waitlist));
-    blocks.push({ type: "context", text: `${parts.join(" · ")}. ${t.fromEventHint}` });
-    if (overridden) blocks.push({ type: "banner", title: t.fromEventDiffersTitle, description: t.fromEventDiffers, variant: "alert" });
+    if (fields.mode) parts.push(fieldOpen ? t.statusOpen : t.statusClosed);
+    if (fields.capacity) parts.push(fieldCapacity > 0 ? t.fromEventPlaces(fieldCapacity) : t.fromEventNoLimit);
+    if (fields.waitlist) parts.push(fieldWaitlist ? t.fromEventWaitlistOn : t.fromEventWaitlistOff);
+    const hints = [fields.capacity || fields.waitlist ? t.fromEventHint : "", fields.mode ? t.fromEventOpenHint : ""].filter(Boolean);
+    blocks.push({ type: "context", text: `${t.fromEventLead} ${parts.join(" · ")}. ${hints.join(" ")}` });
+    // Values saved here before the event form owned them still win. That is only worth a word
+    // when they differ from the event's fields: the same values change nothing (and the next
+    // save drops them).
+    const differs = overrides(stored);
+    if (differs.enabled || differs.capacity || differs.waitlist) {
+      blocks.push(
+        { type: "banner", title: t.fieldsOverriddenTitle, description: t.fieldsOverridden, variant: "alert" },
+        { type: "actions", elements: [{ type: "button", action_id: "use-event-fields", label: t.useEventFields, style: "primary" }] }
+      );
+    }
   }
 
   blocks.push(
-    { type: "form", block_id: "attendance-settings", fields, submit: { action_id: "save-attendance-settings", label: t.savePanel } },
+    { type: "form", block_id: "attendance-settings", fields: inputs, submit: { action_id: "save-attendance-settings", label: t.savePanel } },
     { type: "context", text: t.savedSeparately },
     { type: "divider" },
     { type: "section", text: t.qHeader },

@@ -2,7 +2,8 @@
   "capabilities": [
     "content:read",
     "email:send",
-    "network:request"
+    "network:request",
+    "schema:read"
   ],
   "allowedHosts": [
     "cdn.jsdelivr.net",

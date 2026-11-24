@@ -31,7 +31,10 @@
   "capabilities": [
     "content:read",
     "email:send",
-    "network:request"
+    "network:request",
+    // Read-only: lets the event panel see whether an event collection has the capacity fields,
+    // also on an entry where they are still empty (EmDash leaves empty fields out of its data).
+    "schema:read"
   ],
   // cdn.jsdelivr.net: language packs, downloaded by the language-packs cron and checked against
   // SHA-256 hashes pinned in this bundle.

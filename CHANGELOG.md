@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **One home for places, the waiting list and opening.** When the event collection has the capacity fields, the Registrations panel shows them read-only and points to the event form, also on an entry whose fields are still empty (EmDash leaves empty fields out of the entry's data, so the panel used to offer its own inputs there, and a value saved in them silently won). The panel keeps most places per person, approval, reply-to and the questions. A collection without the fields keeps the inputs.
+- Values an older version saved in the panel for these settings are pointed out in a banner with **Use the event's fields**, which removes them. Saving the panel no longer keeps a stored copy that equals the event's field.
+- On pages and other content that is not an event collection, the Registrations panel says one neutral line instead of inviting the site's maintainers to add the collection. A collection with the capacity fields that is not listed yet still gets the pointer to Site setup.
+- New permission `schema:read` (read-only): the panel reads the event collection's fields. Administrators approve the plugin again when they update.
+
+### Limits
+
+- The panel is still offered on every collection: EmDash 1.5 can limit an editor panel only to collections fixed in the manifest, and the event collections are a setting of each site.
+- Sidebar entries and the panel title stay English: EmDash 1.5 still takes them as plain strings from the manifest.
+- The new texts are in every language pack from `@vermeulen.solutions/eventual-locales` 0.1.11 on; until the release pins that version, they show in English.
+
 ## 0.1.1 (2026-11-14)
 
 ### Changed

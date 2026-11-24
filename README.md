@@ -72,6 +72,7 @@ export default defineConfig({
 | :--- | :--- |
 | `content:read` | Read the event (title, dates, published or not) a booking is for |
 | `email:send` | Confirmations, waitlist offers, approval notices, reminders |
+| `schema:read` | See whether an event collection has the capacity fields, so the event panel leaves places, the waiting list and opening to the event form even while those fields are empty (read-only; added in the next release) |
 | `network:request` to `challenges.cloudflare.com` | Check Cloudflare Turnstile tokens, only when you turn Turnstile on |
 | `network:request` to `cdn.jsdelivr.net` | Download the admin and email translations (language packs from `@vermeulen.solutions/eventual-locales`); each file is checked against a hash built into the plugin |
 
@@ -167,7 +168,9 @@ The `eventual-capacity` exporter writes these fields for you. It merges them int
 node node_modules/@vermeulen.solutions/eventual-capacity/scripts/export-capacity-fields.mjs --merge eventual-schema.json --output eventual-schema-with-capacity.json
 ```
 
-The fields are optional. **Capacity and the waitlist switch have one home:** when the event collection has these fields, they are edited in the event form and the **Registrations** panel of the event editor only reports them; a collection without them gets both settings in the panel instead. (A value saved in the panel by a script or an older version still wins until the panel is saved again; the panel says so.) **Registration is closed by default.** An event accepts registrations only when it is published *and* either its `inventory_mode` is `rsvp` or **Open for registration** is on in the panel. Turning that switch off closes registration without touching existing bookings.
+The fields are optional. **Places, the waiting list and opening have one home:** when the event collection has these fields, they are edited in the event form, and the **Registrations** panel of the event editor only reports them, also on an entry where they are still empty. The panel keeps only the settings that have no field: most places per person, approval, reply-to and the questions. A collection without the fields gets the matching settings in the panel instead (**Places available**, **Waiting list when full**, **Open for registration**). A value saved in the panel by a script or an older version still wins; the panel says so and offers **Use the event's fields** to remove it. **Registration is closed by default.** An event accepts registrations only when it is published *and* either its `inventory_mode` is `rsvp` or, in a collection without that field, **Open for registration** is on in the panel. Closing registration never touches existing bookings.
+
+The **Registrations** panel is offered by EmDash on every collection: its manifest can only limit a panel to collections fixed when the plugin is built, and the event collections are a setting of each site. On a page or other content the panel says one line, that registrations are not used there. Only a collection that has the capacity fields but is not listed in **Site setup** gets a pointer to that setting.
 
 ### 2. Registration form
 
