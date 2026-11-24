@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 (2026-11-24)
+
+### Fixed
+
+- Works on EmDash 1.5, 1.6 and later 1.x sites again: 0.2.0 required exactly version 1.4.0 of EmDash's `@emdash-cms/blocks` package, which only the plugin's build needs. It is now a development dependency, as in Tickets. No code or permission changes.
+
 ## 0.2.0 (2026-11-24)
 
 ### Changed

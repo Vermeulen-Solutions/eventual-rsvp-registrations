@@ -1,3 +1,7 @@
+## 0.2.1
+
+Fixed: installs on EmDash 1.6 and later 1.x sites. Version 0.2.0 asked for one EmDash package at exactly version 1.4.0. No code or permission changes.
+
 ## 0.2.0
 
 Places, the waiting list and opening registration now have one home: when your event type has those fields, you set them in the event form, and the Registrations panel only shows them, also while they are still empty. Settings an older version saved in the panel are pointed out, with a button to go back to the event's own fields. On pages and other content that are not events, the panel says one short line. New permission: Registrations reads the event type's fields (read-only), so you approve the plugin again when you update.

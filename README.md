@@ -4,7 +4,7 @@ Free registration for [Eventual RSVP](https://github.com/Vermeulen-Solutions/eve
 
 **Website:** [eventual.rsvp/registrations](https://eventual.rsvp/registrations/), with the [documentation](https://eventual.rsvp/docs/#attendance), [install guide](https://eventual.rsvp/install/) and [support](https://eventual.rsvp/support/).
 
-**Version 0.2.0.** Registrations, the waiting list, approval, reminders, Turnstile, door check-in and personal-data erasure work and are tested on EmDash's runtime test host, in the local browser test site on Node, and on a Cloudflare preview (its emails are not yet proven there).
+**Version 0.2.1.** Registrations, the waiting list, approval, reminders, Turnstile, door check-in and personal-data erasure work and are tested on EmDash's runtime test host, in the local browser test site on Node, and on a Cloudflare preview (its emails are not yet proven there).
 
 ## What it does
 

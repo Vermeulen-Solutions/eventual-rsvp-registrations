@@ -1,6 +1,6 @@
 {
   "name": "@vermeulen.solutions/eventual-attendance",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "homepage": "https://eventual.rsvp/registrations/",
   "license": "MIT",
   "type": "module",
@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@emdash-cms/admin": "1.4.0",
+    "@emdash-cms/blocks": "1.4.0",
     "@emdash-cms/plugin-cli": "0.13.5",
     "@emdash-cms/plugin-test": "0.2.11",
     "@vermeulen.solutions/eventual-capacity": "github:Vermeulen-Solutions/eventual-rsvp-library#91ad9bf17fa3d82163b39d10115b13204b11d2f3",
@@ -53,7 +54,6 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@emdash-cms/blocks": "1.4.0",
     "@vermeulen.solutions/eventual-locales": "0.1.11",
     "zod": "4.5.4"
   }
