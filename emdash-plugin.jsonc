@@ -12,7 +12,9 @@
     "installation": { "file": "./docs/registry-installation.md" },
     "changelog": { "file": "./docs/registry-changelog.md" }
   },
-  "repo": "https://github.com/Vermeulen-Solutions/eventual-rsvp-registrations",
+  // No "repo": the registry package profile is still linked to the old address
+  // (github.com/Vermeulen-Solutions/eventual-attendance) and emdash-plugin publish refuses any
+  // other one. Publish with git hidden (GIT_DIR=none) so the CLI does not take the origin remote.
   "release": {
     "requires": { "env:emdash": ">=1.2.0 <2.0.0" },
     "artifacts": {
