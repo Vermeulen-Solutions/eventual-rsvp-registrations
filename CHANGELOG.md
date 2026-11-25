@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2 (2026-11-25)
+
+### Fixed
+
+- The settings page always shows the saved settings. Each sandbox isolate kept the settings for up to a minute, so on a site that runs more than one, a reload right after saving could show the old values and look as if the save had not worked. The page now reads them fresh (one extra host call when it opens), and refreshes the copy that registrations and emails use in that isolate.
+
+### Documentation
+
+- README: what stays behind when a site moves from the config to the Registry (registrations, places taken, reminders, settings, signing key), and when it is safe to move.
+
 ## 0.2.1 (2026-11-24)
 
 ### Fixed

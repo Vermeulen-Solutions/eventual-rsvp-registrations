@@ -1,6 +1,6 @@
 {
   "name": "@vermeulen.solutions/eventual-attendance",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "homepage": "https://eventual.rsvp/registrations/",
   "license": "MIT",
   "type": "module",

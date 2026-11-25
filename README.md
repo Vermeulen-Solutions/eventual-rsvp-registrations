@@ -4,7 +4,7 @@ Free registration for [Eventual RSVP](https://github.com/Vermeulen-Solutions/eve
 
 **Website:** [eventual.rsvp/registrations](https://eventual.rsvp/registrations/), with the [documentation](https://eventual.rsvp/docs/#attendance), [install guide](https://eventual.rsvp/install/) and [support](https://eventual.rsvp/support/).
 
-**Version 0.2.1.** Registrations, the waiting list, approval, reminders, Turnstile, door check-in and personal-data erasure work and are tested on EmDash's runtime test host, in the local browser test site on Node, and on a Cloudflare preview (its emails are not yet proven there).
+**Version 0.2.2.** Registrations, the waiting list, approval, reminders, Turnstile, door check-in and personal-data erasure work and are tested on EmDash's runtime test host, in the local browser test site on Node, and on a Cloudflare preview (its emails are not yet proven there).
 
 ## What it does
 
@@ -65,6 +65,17 @@ export default defineConfig({
 - **Config:** `plugins: [eventualAttendance]`. This runs in the site's own process, without the sandbox's limits or isolation; only on hosts you trust.
 - **Pages:** the self-service page with `RsvpManage`, and `RsvpForm` on the event page.
 - **Check it worked:** as for the sandboxed npm install. Tested on Node in the local test site (`EVENTUAL_PLUGIN_MODE=native`, `npm run test:integration:suite` and `npm run test:e2e`).
+
+### Moving a site from the config to the Registry
+
+EmDash keeps each plugin's own data under its plugin ID. A Registry install has a new ID (`r_…`), so it starts empty. What the config install stored stays in the database under `eventual-attendance`, but the new install cannot read it. Events are EmDash content and are not affected. What stays behind:
+
+- **Registrations and waiting lists.** They no longer appear in the admin, and places they took are free again, so an event can be overbooked.
+- **Scheduled reminders, approval deadlines and waiting-list offers.**
+- **Settings**: event collection, self-service page, reply-to address, reminders, retention, time zone and Turnstile keys.
+- **The signing key.** Cancel and manage links in emails sent before the move stop working, and their "add to calendar" links point at the old ID.
+
+So move when no event has open registrations or upcoming bookings, or keep the config install until those events are over. After the move, fill in the settings again, and pass the new paths from **Site setup** to `RsvpForm` and `RsvpManage`. Do not delete the old install's data: it is the only copy of those registrations.
 
 ### Permissions and why
 

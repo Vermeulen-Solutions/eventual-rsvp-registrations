@@ -1,3 +1,7 @@
+## 0.2.2
+
+Fixed: the settings page always shows the saved settings. On a site that runs the plugin more than once, a reload right after saving could show the old values for up to a minute. The README now says what stays behind when a site moves to the Registry. No permission changes.
+
 ## 0.2.1
 
 Fixed: installs on EmDash 1.6 and later 1.x sites. Version 0.2.0 asked for one EmDash package at exactly version 1.4.0. No code or permission changes.
