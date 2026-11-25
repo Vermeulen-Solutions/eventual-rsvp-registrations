@@ -152,6 +152,21 @@ export async function getPluginConfig(host: ConfigHost, budget: Budget, nowMs = 
   return cached.config;
 }
 
+/**
+ * The stored settings, never an older copy: for pages that show settings to the administrator.
+ * Another isolate or server instance may have saved since this isolate cached them, and a page
+ * showing the old values reads as a save that did not stick. Reuses what was read or saved
+ * since `sinceMs` (the start of the request); otherwise re-reads the editable fields (1 call)
+ * and refreshes this isolate's cache. The signing key never changes once created.
+ */
+export async function getFreshPluginConfig(host: ConfigHost, budget: Budget, sinceMs: number, nowMs = Date.now()): Promise<PluginConfig> {
+  if (cached && cached.at >= sinceMs) return cached.config;
+  if (!cached) return getPluginConfig(host, budget, nowMs);
+  const stored = await budget.call(() => host.kv.getVersioned<EditableFields>(CONFIG_KEY));
+  cached = { config: { hmacSecret: cached.config.hmacSecret, ...normalizeEditable(stored?.value) }, at: nowMs };
+  return cached.config;
+}
+
 /** Updates the admin-editable fields. The secret is never changed here. */
 export async function updatePluginConfig(host: ConfigHost, budget: Budget, patch: EditableConfig): Promise<PluginConfig> {
   for (let attempt = 0; attempt < 2; attempt++) {

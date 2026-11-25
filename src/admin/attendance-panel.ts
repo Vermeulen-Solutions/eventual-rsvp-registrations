@@ -2,7 +2,7 @@ import type { BlockResponse } from "@emdash-cms/blocks";
 import type { PluginContext, SandboxedRouteContext } from "emdash/plugin";
 import type { AttendeeRecord, WaitlistEntry } from "../domain/types";
 import { LEDGER_PREFIX, RpcBudget, normalizeEmail, summarizeAnswers } from "@vermeulen.solutions/eventual-capacity";
-import { eventCollections, getPluginConfig, manageLink, turnstileEnabled, updatePluginConfig, type EditableConfig, type PluginConfig } from "../domain/config";
+import { eventCollections, getFreshPluginConfig, getPluginConfig, manageLink, turnstileEnabled, updatePluginConfig, type EditableConfig, type PluginConfig } from "../domain/config";
 import { calendarLink, eventTiming } from "../domain/calendar";
 import { guestMessages, languageName, LOCALES, normalizeLocale } from "../domain/messages";
 import { generateCancelToken } from "../domain/security";
@@ -533,7 +533,7 @@ export async function handleAttendanceAdmin(
     if (!budget.has(2)) return lightPage(t, toast);
     // Saving the site-setup form keeps that section open, so its result stays in view.
     const setupOpen = actionId === "save-config" && req.values?.eventCollection !== undefined;
-    return { toast, blocks: settingsBlocks(t, await getPluginConfig(actx, budget), ctx.plugin?.id ?? "eventual-attendance", personalDataEmail, personalDataBlocks, setupOpen) };
+    return { toast, blocks: settingsBlocks(t, await getFreshPluginConfig(actx, budget, nowMs), ctx.plugin?.id ?? "eventual-attendance", personalDataEmail, personalDataBlocks, setupOpen) };
   }
 
   if (!budget.has(RENDER_COST)) return lightPage(t, toast);
