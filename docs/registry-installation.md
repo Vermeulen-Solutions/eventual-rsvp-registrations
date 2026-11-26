@@ -12,4 +12,6 @@ Then:
 
 Visitors register on your pages; the list stays in your own database. The **Door list** works on a phone for check-in.
 
+**Uninstalling.** Registrations, waiting lists, answers and settings stay unless you tick EmDash's **Also delete plugin storage data**, so a reinstall picks up where you left off. While Registrations is uninstalled, the forms on your pages stop working, links in emails already sent (manage, cancel, claim a place) lead nowhere, and no reminders go out. If you will not reinstall, tick the box: the data holds people's names and email addresses. The place-limit fields on your events stay as ordinary fields.
+
 [Install guide](https://eventual.rsvp/install/) · [Documentation](https://eventual.rsvp/docs/#attendance)

@@ -279,6 +279,10 @@ These are the limits of one background task or download, given the sandbox's 10 
 - **A public route answers `TRY_AGAIN`:** an unexpected host or database error was caught (it is logged, never shown). Check the EmDash log; often the event collection is not set up yet on a new site.
 - **A buyer cannot find their booking:** the confirmation shows the order reference and, when built, the manage link; otherwise use the link in the confirmation email. A site without an email provider still shows both on the page.
 
+## Uninstalling
+
+Registrations, waiting lists, answers and settings stay unless you tick EmDash's **Also delete plugin storage data**, so a reinstall picks up where you left off. While Registrations is uninstalled, the forms on your pages stop working, links in emails already sent (manage, cancel, claim a place) lead nowhere, and no reminders go out. If you will not reinstall, tick the box: the data holds people's names and email addresses. The place-limit fields on your events stay as ordinary fields.
+
 ## Architecture & specifications
 
 - [Registrations specification](docs/SPECIFICATION.md): ledger invariants, waitlist states, tokens, routes and their call budgets.
