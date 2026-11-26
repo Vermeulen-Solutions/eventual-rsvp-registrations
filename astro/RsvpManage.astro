@@ -39,20 +39,47 @@ const all = Object.fromEntries(await Promise.all(["en", ...LOCALES].map(async (l
   /* In the `eventual` cascade layer: unlayered site CSS overrides it, and sites that use layers
      can place `eventual` below their own components layer. */
   @layer eventual {
+  /* Defaults sit on the components, not on :root, so they never override another plugin's or
+     the site's own: each reads the public --eventual-* property first (set it on any ancestor),
+     with light and dark fallbacks that follow the page's color-scheme. */
+  .eventual-manage {
+    --_rsvp-primary: var(--eventual-primary, light-dark(#0369a1, #7dd3fc));
+    --_rsvp-primary-hover: var(--eventual-primary-hover, color-mix(in oklch, var(--_rsvp-primary) 82%, light-dark(#000, #fff)));
+    --_rsvp-on-primary: var(--eventual-on-primary, light-dark(#ffffff, #082f49));
+    --_rsvp-bg: var(--eventual-bg, light-dark(#f8fafc, #0f172a));
+    --_rsvp-field-bg: var(--eventual-field-bg, light-dark(#ffffff, #020617));
+    --_rsvp-border: var(--eventual-border, light-dark(#e2e8f0, #334155));
+    --_rsvp-text: var(--eventual-text, light-dark(#0f172a, #e2e8f0));
+    --_rsvp-text-muted: var(--eventual-text-muted, light-dark(#475569, #94a3b8));
+    --_rsvp-focus: var(--eventual-focus, var(--_rsvp-primary));
+    --_rsvp-focus-ring: var(--eventual-focus-ring, color-mix(in srgb, var(--_rsvp-focus) 25%, transparent));
+    --_rsvp-success: var(--eventual-success, light-dark(#166534, #86efac));
+    --_rsvp-success-bg: var(--eventual-success-bg, light-dark(#dcfce7, #052e16));
+    --_rsvp-success-border: var(--eventual-success-border, light-dark(#bbf7d0, #166534));
+    --_rsvp-warning: var(--eventual-warning, light-dark(#92400e, #fcd34d));
+    --_rsvp-warning-bg: var(--eventual-warning-bg, light-dark(#fef3c7, #422006));
+    --_rsvp-warning-border: var(--eventual-warning-border, light-dark(#fde68a, #92400e));
+    --_rsvp-error: var(--eventual-error, light-dark(#991b1b, #fca5a5));
+    --_rsvp-error-bg: var(--eventual-error-bg, light-dark(#fee2e2, #450a0a));
+    --_rsvp-error-border: var(--eventual-error-border, light-dark(#fecaca, #991b1b));
+    --_rsvp-info-bg: var(--eventual-info-bg, light-dark(#f1f5f9, #1e293b));
+    --_rsvp-danger: var(--eventual-danger, light-dark(#b91c1c, #fca5a5));
+    --_rsvp-on-danger: var(--eventual-on-danger, light-dark(#ffffff, #450a0a));
+  }
   .eventual-manage [hidden] { display: none; }
-  .eventual-manage-details:not([hidden]) { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0; padding: 0.85rem 1rem; background: var(--eventual-field-bg, #fff); border: 1px solid var(--eventual-border, #e2e8f0); border-radius: var(--eventual-control-radius, 6px); }
-  .eventual-manage-details dt { color: var(--eventual-text-muted, #475569); font-size: 0.85rem; }
+  .eventual-manage-details:not([hidden]) { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0; padding: 0.85rem 1rem; background: var(--_rsvp-field-bg); border: 1px solid var(--_rsvp-border); border-radius: var(--eventual-control-radius, 6px); }
+  .eventual-manage-details dt { color: var(--_rsvp-text-muted); font-size: 0.85rem; }
   .eventual-manage-details dd { margin: 0; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   .eventual-manage {
     font-family: inherit;
-    color: var(--eventual-text, #0f172a);
+    color: var(--_rsvp-text);
     margin: 2rem 0;
   }
   .eventual-manage-card {
     box-sizing: border-box;
     max-width: 480px;
-    border: 1px solid var(--eventual-border, #e2e8f0);
-    background: var(--eventual-bg, #f8fafc);
+    border: 1px solid var(--_rsvp-border);
+    background: var(--_rsvp-bg);
     border-radius: var(--eventual-radius, 8px);
     padding: 1.5rem;
     line-height: 1.5;
@@ -70,8 +97,8 @@ const all = Object.fromEntries(await Promise.all(["en", ...LOCALES].map(async (l
   }
   .eventual-manage-btn {
     align-self: flex-start;
-    background: var(--eventual-primary, #0369a1);
-    color: var(--eventual-on-primary, #fff);
+    background: var(--_rsvp-primary);
+    color: var(--_rsvp-on-primary);
     border: none;
     border-radius: var(--eventual-button-radius, 6px);
     padding: 0.7rem 1.2rem;
@@ -80,17 +107,18 @@ const all = Object.fromEntries(await Promise.all(["en", ...LOCALES].map(async (l
     cursor: pointer;
   }
   .eventual-manage-btn:hover {
-    background: var(--eventual-primary-hover, #075985);
+    background: var(--_rsvp-primary-hover);
   }
   .eventual-manage-btn:focus-visible {
-    outline: 2px solid var(--eventual-focus, var(--eventual-primary, #0369a1));
+    outline: 2px solid var(--_rsvp-focus);
     outline-offset: 2px;
   }
   .eventual-manage-btn.danger {
-    background: var(--eventual-danger, #b91c1c);
+    background: var(--_rsvp-danger);
+    color: var(--_rsvp-on-danger);
   }
   .eventual-manage-btn.danger:hover {
-    background: var(--eventual-error, #991b1b);
+    background: color-mix(in oklch, var(--_rsvp-danger) 82%, light-dark(#000, #fff));
   }
   .eventual-manage-btn:disabled {
     opacity: 0.6;
@@ -102,19 +130,19 @@ const all = Object.fromEntries(await Promise.all(["en", ...LOCALES].map(async (l
     border-radius: var(--eventual-control-radius, 6px);
   }
   .eventual-manage-status.success {
-    background: var(--eventual-success-bg, #dcfce7);
-    color: var(--eventual-success, #166534);
-    border: 1px solid #bbf7d0;
+    background: var(--_rsvp-success-bg);
+    color: var(--_rsvp-success);
+    border: 1px solid var(--_rsvp-success-border);
   }
   .eventual-manage-status.info {
-    background: var(--eventual-info-bg, #f1f5f9);
-    color: var(--eventual-text, #334155);
-    border: 1px solid var(--eventual-border, #e2e8f0);
+    background: var(--_rsvp-info-bg);
+    color: var(--_rsvp-text);
+    border: 1px solid var(--_rsvp-border);
   }
   .eventual-manage-status.error {
-    background: var(--eventual-error-bg, #fee2e2);
-    color: var(--eventual-error, #991b1b);
-    border: 1px solid #fecaca;
+    background: var(--_rsvp-error-bg);
+    color: var(--_rsvp-error);
+    border: 1px solid var(--_rsvp-error-border);
   }
   }
 </style>

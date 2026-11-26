@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.3 (2026-11-26)
+
+### Changed
+
+- **Light and dark defaults.** `RsvpForm` and `RsvpManage` follow the page's `color-scheme`: on a dark page their card, fields, buttons and messages use dark colours instead of the light ones. The light colours are unchanged.
+- **Defaults no longer on `:root`.** `RsvpForm` set its default `--eventual-*` colours on the whole page, light only, so on a page that also shows Core 0.19.0's event pages (or any other component reading those variables) they replaced that component's own defaults and broke its dark mode. The defaults now sit on the two components. Variables you set on the page or any wrapper still win, as before.
+- The cancel button on the manage page sets its own text colour, so it stays readable when `--eventual-on-primary` is dark.
+- Language packs: pins `@vermeulen.solutions/eventual-locales` 0.1.12 (the same Registrations texts as 0.1.11).
+- No changes to the plugin's behaviour (no permission, storage or route changes); only the site components' styles.
+
 ## 0.2.2 (2026-11-25)
 
 ### Fixed

@@ -1,3 +1,7 @@
+## 0.2.3
+
+The registration form and the manage page follow light and dark pages, and their default colours no longer change other components on the page, such as Core's event pages. No permission changes.
+
 ## 0.2.2
 
 Fixed: the settings page always shows the saved settings. On a site that runs the plugin more than once, a reload right after saving could show the old values for up to a minute. The README now says what stays behind when a site moves to the Registry. No permission changes.

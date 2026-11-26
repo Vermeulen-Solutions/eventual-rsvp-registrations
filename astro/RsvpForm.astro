@@ -120,25 +120,36 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
   /* In the `eventual` cascade layer: unlayered site CSS overrides it, and sites that use layers
      can place `eventual` below their own components layer. */
   @layer eventual {
-  /* Defaults live on :root, not on the widget: a site sets --eventual-* on any wrapper and the
-     widget inherits it, whatever cascade layer the site's CSS is in. */
-  :root {
-    --eventual-primary: #0369a1;
-    --eventual-primary-hover: #075985;
-    --eventual-bg: #f8fafc;
-    --eventual-border: #e2e8f0;
-    --eventual-text: #0f172a;
-    --eventual-text-muted: #475569;
-    --eventual-success: #166534;
-    --eventual-success-bg: #dcfce7;
-    --eventual-warning: #92400e;
-    --eventual-warning-bg: #fef3c7;
-    --eventual-error: #991b1b;
-    --eventual-error-bg: #fee2e2;
+  /* Defaults sit on the components, not on :root, so they never override another plugin's or
+     the site's own: each reads the public --eventual-* property first (set it on any ancestor),
+     with light and dark fallbacks that follow the page's color-scheme. */
+  .eventual-rsvp-widget {
+    --_rsvp-primary: var(--eventual-primary, light-dark(#0369a1, #7dd3fc));
+    --_rsvp-primary-hover: var(--eventual-primary-hover, color-mix(in oklch, var(--_rsvp-primary) 82%, light-dark(#000, #fff)));
+    --_rsvp-on-primary: var(--eventual-on-primary, light-dark(#ffffff, #082f49));
+    --_rsvp-bg: var(--eventual-bg, light-dark(#f8fafc, #0f172a));
+    --_rsvp-field-bg: var(--eventual-field-bg, light-dark(#ffffff, #020617));
+    --_rsvp-border: var(--eventual-border, light-dark(#e2e8f0, #334155));
+    --_rsvp-text: var(--eventual-text, light-dark(#0f172a, #e2e8f0));
+    --_rsvp-text-muted: var(--eventual-text-muted, light-dark(#475569, #94a3b8));
+    --_rsvp-focus: var(--eventual-focus, var(--_rsvp-primary));
+    --_rsvp-focus-ring: var(--eventual-focus-ring, color-mix(in srgb, var(--_rsvp-focus) 25%, transparent));
+    --_rsvp-success: var(--eventual-success, light-dark(#166534, #86efac));
+    --_rsvp-success-bg: var(--eventual-success-bg, light-dark(#dcfce7, #052e16));
+    --_rsvp-success-border: var(--eventual-success-border, light-dark(#bbf7d0, #166534));
+    --_rsvp-warning: var(--eventual-warning, light-dark(#92400e, #fcd34d));
+    --_rsvp-warning-bg: var(--eventual-warning-bg, light-dark(#fef3c7, #422006));
+    --_rsvp-warning-border: var(--eventual-warning-border, light-dark(#fde68a, #92400e));
+    --_rsvp-error: var(--eventual-error, light-dark(#991b1b, #fca5a5));
+    --_rsvp-error-bg: var(--eventual-error-bg, light-dark(#fee2e2, #450a0a));
+    --_rsvp-error-border: var(--eventual-error-border, light-dark(#fecaca, #991b1b));
+    --_rsvp-info-bg: var(--eventual-info-bg, light-dark(#f1f5f9, #1e293b));
+    --_rsvp-danger: var(--eventual-danger, light-dark(#b91c1c, #fca5a5));
+    --_rsvp-on-danger: var(--eventual-on-danger, light-dark(#ffffff, #450a0a));
   }
   .eventual-rsvp-widget {
     font-family: inherit;
-    color: var(--eventual-text);
+    color: var(--_rsvp-text);
     margin: 1.5rem 0;
   }
 
@@ -147,8 +158,8 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
   }
 
   .eventual-rsvp-card {
-    background: var(--eventual-bg);
-    border: 1px solid var(--eventual-border);
+    background: var(--_rsvp-bg);
+    border: 1px solid var(--_rsvp-border);
     border-radius: var(--eventual-radius, 8px);
     padding: 1.5rem;
     max-width: var(--eventual-card-max-width, 440px);
@@ -175,24 +186,24 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
     font-size: 0.85rem;
     font-weight: 600;
     margin-bottom: 0.35rem;
-    color: var(--eventual-text);
+    color: var(--_rsvp-text);
   }
 
   .eventual-input,
   .eventual-select {
     width: 100%;
     padding: 0.6rem 0.75rem;
-    border: 1px solid var(--eventual-border);
+    border: 1px solid var(--_rsvp-border);
     border-radius: var(--eventual-control-radius, 6px);
     font-size: 0.95rem;
-    color: var(--eventual-text, #0f172a);
-    background: var(--eventual-field-bg, #fff);
+    color: var(--_rsvp-text);
+    background: var(--_rsvp-field-bg);
     box-sizing: border-box;
     transition: border-color 0.15s ease;
   }
 
   .eventual-input::placeholder {
-    color: var(--eventual-text-muted, #64748b);
+    color: var(--_rsvp-text-muted);
   }
 
   textarea.eventual-input {
@@ -202,20 +213,20 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
   .eventual-input:focus,
   .eventual-select:focus {
     outline: 2px solid transparent;
-    border-color: var(--eventual-focus, var(--eventual-primary));
-    box-shadow: 0 0 0 3px var(--eventual-focus-ring, rgba(3, 105, 161, 0.2));
+    border-color: var(--_rsvp-focus);
+    box-shadow: 0 0 0 3px var(--_rsvp-focus-ring);
   }
 
   .eventual-submit-btn:focus-visible,
   .eventual-checkbox-row input:focus-visible {
-    outline: 2px solid var(--eventual-focus, var(--eventual-primary));
+    outline: 2px solid var(--_rsvp-focus);
     outline-offset: 2px;
   }
 
   .eventual-submit-btn {
     width: 100%;
-    background: var(--eventual-primary);
-    color: var(--eventual-on-primary, #fff);
+    background: var(--_rsvp-primary);
+    color: var(--_rsvp-on-primary);
     border: none;
     padding: 0.75rem 1.25rem;
     border-radius: var(--eventual-button-radius, 6px);
@@ -226,7 +237,7 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
   }
 
   .eventual-submit-btn:hover {
-    background: var(--eventual-primary-hover);
+    background: var(--_rsvp-primary-hover);
   }
 
   .eventual-submit-btn:disabled {
@@ -251,21 +262,21 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
     min-height: 0;
     margin: 0;
     flex: none;
-    accent-color: var(--eventual-primary);
+    accent-color: var(--_rsvp-primary);
   }
 
   .eventual-required {
-    color: var(--eventual-error);
+    color: var(--_rsvp-error);
     margin-left: 0.15rem;
   }
 
   .eventual-input[aria-invalid="true"],
   .eventual-select[aria-invalid="true"] {
-    border-color: var(--eventual-error);
+    border-color: var(--_rsvp-error);
   }
 
   .eventual-field-error {
-    color: var(--eventual-error);
+    color: var(--_rsvp-error);
     font-size: 0.85rem;
     margin: 0.3rem 0 0;
   }
@@ -279,21 +290,21 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
   }
 
   .eventual-status-msg.success {
-    background: var(--eventual-success-bg);
-    color: var(--eventual-success);
-    border: 1px solid #bbf7d0;
+    background: var(--_rsvp-success-bg);
+    color: var(--_rsvp-success);
+    border: 1px solid var(--_rsvp-success-border);
   }
 
   .eventual-status-msg.waitlist {
-    background: var(--eventual-warning-bg);
-    color: var(--eventual-warning);
-    border: 1px solid #fde68a;
+    background: var(--_rsvp-warning-bg);
+    color: var(--_rsvp-warning);
+    border: 1px solid var(--_rsvp-warning-border);
   }
 
   .eventual-status-msg.error {
-    background: var(--eventual-error-bg);
-    color: var(--eventual-error);
-    border: 1px solid #fecaca;
+    background: var(--_rsvp-error-bg);
+    color: var(--_rsvp-error);
+    border: 1px solid var(--_rsvp-error-border);
   }
 
   .eventual-manage-link {
@@ -302,16 +313,16 @@ const formId = `eventual-rsvp-${eventId}-${occurrenceStart.replace(/[^a-zA-Z0-9]
   }
 
   .eventual-manage-link a {
-    color: var(--eventual-primary);
+    color: var(--_rsvp-primary);
     font-weight: 600;
   }
 
   .eventual-manage-link a:hover {
-    color: var(--eventual-primary-hover);
+    color: var(--_rsvp-primary-hover);
   }
 
   .eventual-manage-link a:focus-visible {
-    outline: 2px solid var(--eventual-focus, var(--eventual-primary));
+    outline: 2px solid var(--_rsvp-focus);
     outline-offset: 2px;
   }
   }
